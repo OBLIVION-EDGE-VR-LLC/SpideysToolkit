@@ -1,0 +1,68 @@
+###############################################################################
+# Docker Compose — Spidey's Toolkit Build Server
+#
+# The build server container has all cross-compiler toolchains installed.
+# Build artifacts are written to ./output/ on the host via a bind mount,
+# so they persist when the container is stopped or removed.
+#
+# Usage:
+#   docker-compose up -d          # Start the build server
+#   docker-compose exec builder   # Interactive cmd2 shell
+#     compile x86_64 release
+#     compile arm release
+#     compile riscv64 release
+#     compile win_dll release
+#     package
+#     exit
+#   docker-compose down           # Stop the server
+#
+# The client (host) runs the cmd2 tool which connects to the container:
+#   python3 build_client.py       # Client that dispatches to Docker
+#
+# Build artifacts are at ./output/ after compilation.
+
+# By Oblivion Edge Vulnerabilty Research LLC, Copyright (c) November 16 2026
+
+###############################################################################
+
+
+services:
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spideys-toolkit-server
+    image: spideys-toolkit-server:latest
+
+    # Shared volume: container writes to /output, host sees ./output/
+    volumes:
+      # Build output — persists on host when container is down
+      - ./output:/output
+
+      # Project source — mounted read-write so changes are reflected
+      - .:/workspace
+
+    # Keep the container running for exec commands
+    stdin_open: true
+    tty: true
+
+    # Environment variables for the build tools
+    environment:
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+      - BUILD_OUTPUT_DIR=/output
+      - TERM=xterm-256color
+
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+
+    # Network (isolated build network)
+    networks:
+      - build-net
+
+networks:
+  build-net:
+    driver: bridge
